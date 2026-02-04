@@ -56,4 +56,5 @@ def invia_telegram(messaggio):
     requests.post(url, data={"chat_id": CHAT_ID, "text": messaggio, "parse_mode": "Markdown"})
 
 if __name__ == "__main__":
+    invia_telegram("Test: Il bot è vivo e sta cercando voli!")
     cerca_voli()
