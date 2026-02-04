@@ -10,10 +10,16 @@ CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 def interpreta_messaggio():
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
     mesi_ita = {
-        "gennaio": "01", "febbraio": "02", "marzo": "03", "aprile": "04",
-        "maggio": "05", "giugno": "06", "luglio": "07", "agosto": "08",
-        "settembre": "09", "ottobre": "10", "novembre": "11", "dicembre": "12"
+        "gennaio": 1, "febbraio": 2, "marzo": 3, "aprile": 4,
+        "maggio": 5, "giugno": 6, "luglio": 7, "agosto": 8,
+        "settembre": 9, "ottobre": 10, "novembre": 11, "dicembre": 12
     }
+    
+    # Prende l'anno e il mese corrente
+    oggi = datetime.now()
+    anno_corrente = oggi.year
+    mese_corrente = oggi.month
+
     try:
         res = requests.get(url).json()
         if res["result"]:
@@ -22,29 +28,36 @@ def interpreta_messaggio():
                 testo = messaggi[-1]["message"]["text"].lower()
                 numeri = re.findall(r'\d+', testo)
                 durata = int(numeri[0]) if numeri else 7
-                mese_scelto = "06"
+                
+                mese_scelto = 6 # Default Giugno
                 for nome, numero in mesi_ita.items():
                     if nome in testo:
                         mese_scelto = numero
                         break
-                return durata, mese_scelto
+                
+                # LOGICA ANNO AUTOMATICO:
+                # Se il mese scelto è già passato quest'anno, cerca per l'anno prossimo
+                if mese_scelto < mese_corrente:
+                    anno_ricerca = anno_corrente + 1
+                else:
+                    anno_ricerca = anno_corrente
+                
+                return durata, mese_scelto, anno_ricerca
     except:
         pass
-    return 7, "06"
+    return 7, 6, anno_corrente
 
 def cerca_voli():
-    durata, mese = interpreta_messaggio()
-    anno = 2026
+    durata, mese, anno = interpreta_messaggio()
     
-    # Calcolo date per l'API
-    data_andata = datetime(anno, int(mese), 1)
+    # Impostiamo la ricerca per il 10 del mese scelto
+    data_andata = datetime(anno, mese, 10)
     data_ritorno = data_andata + timedelta(days=durata)
     
-    # Trasformiamo in testo formato YYYY-MM-DD
     out_str = data_andata.strftime("%Y-%m-%d")
     ret_str = data_ritorno.strftime("%Y-%m-%d")
     
-    print(f"✈️ Cerco volo di {durata} giorni. Partenza indicativa: {out_str}, Ritorno: {ret_str}")
+    print(f"✈️ Ricerca Automatica: {durata} giorni nel periodo {mese}/{anno}")
 
     url = "https://serpapi.com/search"
     params = {
@@ -52,36 +65,37 @@ def cerca_voli():
         "departure_id": "MIL",
         "arrival_id": "FUE",
         "outbound_date": out_str,
-        "return_date": ret_str, # AGGIUNTO: ora l'API è contenta
+        "return_date": ret_str,
         "currency": "EUR",
         "hl": "it",
         "api_key": SERPAPI_KEY,
-        "type": "1"
+        "stops": "0" 
     }
 
     try:
         response = requests.get(url, params=params)
         data = response.json()
         
-        if "error" in data:
-            print(f"Errore API: {data['error']}")
+        voli = data.get('best_flights', []) or data.get('other_flights', [])
+        
+        if not voli:
+            invia_telegram(f"⚠️ Nessun volo trovato per {durata} gg a {mese}/{anno}. Prova un altro mese!")
             return
 
-        offerte = data.get('best_flights', [])
-        if not offerte:
-            invia_telegram(f"🧐 Nessun volo 'Best' trovato per {durata} giorni a {mese}/{anno}.")
-            return
-
-        for volo in offerte[:3]:
+        for volo in voli[:3]:
+            prezzo = volo.get('price', 'N/A')
+            t = volo['flights']
+            
             msg = (
-                f"✈️ **OFFERTA {durata} GIORNI**\n\n"
-                f"💰 Prezzo: {volo['price']}€\n"
-                f"🏢 Compagnia: {volo['flights'][0]['airline']}\n"
-                f"📅 Andata: {volo['flights'][0]['departure_airport']['time']}\n"
-                f"📅 Ritorno: {volo['flights'][-1]['departure_airport']['time']}\n\n"
+                f"✈️ **OFFERTA {durata} GIORNI ({anno})**\n\n"
+                f"💰 Prezzo: {prezzo}€\n"
+                f"🏢 Compagnia: {t[0]['airline']}\n"
+                f"📅 Partenza: {t[0]['departure_airport']['time']}\n"
+                f"📅 Ritorno: {t[-1]['departure_airport']['time']}\n\n"
                 f"🔗 [Link Google Flights](https://www.google.com/travel/flights)"
             )
             invia_telegram(msg)
+            
     except Exception as e:
         print(f"Errore: {e}")
 
