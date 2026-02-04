@@ -8,7 +8,7 @@ CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 AEROPORTI_MILANO = ["BGY", "MXP"]
 DESTINAZIONE = "FUE"
-BUDGET_MAX = 150  # Avvisami se il totale A/R è sotto i 150€
+BUDGET_MAX = 500  # Avvisami se il totale A/R è sotto i 150€
 
 def cerca_voli():
     for origine in AEROPORTI_MILANO:
@@ -20,8 +20,8 @@ def cerca_voli():
             "outboundDepartureDateTo": "2026-07-01",
             "inboundDepartureDateFrom": "2026-03-01",
             "inboundDepartureDateTo": "2026-07-01",
-            "durationMinimumDays": 4,
-            "durationMaximumDays": 10,
+            "durationMinimumDays": 2,
+            "durationMaximumDays": 15,
             "language": "it",
             "market": "it-it"
         }
@@ -34,6 +34,9 @@ def cerca_voli():
                 p_andata = f['outbound']['price']['value']
                 p_ritorno = f['inbound']['price']['value']
                 totale = p_andata + p_ritorno
+                
+                # STAMPA TUTTI I PREZZI CHE TROVA, ANCHE QUELLI ALTI
+                print(f"Trovato volo a {totale}€ con date {f['outbound']['departureDate'][:10]}")
                 
                 if totale <= BUDGET_MAX:
                     msg = (
