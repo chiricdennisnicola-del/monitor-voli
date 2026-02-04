@@ -24,40 +24,16 @@ def cerca_offerte_smart():
     }
 
     try:
-        print("Interrogando Google Flights via SerpApi...")
+        print(f"Uso la chiave API: {SERPAPI_KEY[:5]}***") # Stampa solo l'inizio per sicurezza
         response = requests.get(url, params=params)
+        print(f"Stato Risposta: {response.status_code}")
+        
         data = response.json()
         
-        # Prendiamo i "Migliori voli" (Best Flights)
-        voli = data.get('best_flights', [])
-        
-        if not voli:
-            # Se non ci sono 'best', proviamo gli 'altri' voli economici
-            voli = data.get('other_flights', [])
-
-        if not voli:
-            print("Nessun volo trovato.")
+        # Se c'è un errore nei parametri o nella chiave, SerpApi lo scrive qui:
+        if "error" in data:
+            print(f"Errore SerpApi: {data['error']}")
             return
-
-        # Mandiamo solo i primi 2 risultati (i più economici e veloci)
-        for volo in voli[:2]:
-            prezzo = volo['price']
-            tratte = volo['flights']
-            
-            # Info volo andata
-            partenza_nome = tratte[0]['departure_airport']['name']
-            aereo_codice = tratte[0]['departure_airport']['id']
-            compagnia = tratte[0]['airline']
-            
-            msg = (
-                f"✈️ **GOOGLE FLIGHTS: MIGLIOR PREZZO**\n\n"
-                f"💰 Prezzo Totale: {prezzo}€\n"
-                f"🛫 Da: {partenza_nome} ({aereo_codice})\n"
-                f"🏢 Compagnia: {compagnia}\n"
-                f"📅 Andata/Ritorno trovati per le date selezionate.\n\n"
-                f"🔗 [Vedi su Google Flights](https://www.google.com/travel/flights?q=Flights%20to%20FUE%20from%20MIL)"
-            )
-            invia_telegram(msg)
 
     except Exception as e:
         print(f"Errore: {e}")
