@@ -1,46 +1,78 @@
 import os
 import requests
+from datetime import datetime
 
-# Configurazioni da GitHub Secrets
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-def cerca_offerte_smart():
+def leggi_range_da_chat():
+    """Legge l'ultimo messaggio per impostare il periodo di ricerca"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    try:
+        res = requests.get(url).json()
+        if res["result"]:
+            # Prende l'ultimo messaggio di testo inviato al bot
+            messaggi = [m for m in res["result"] if "message" in m and "text" in m["message"]]
+            if messaggi:
+                testo = messaggi[-1]["message"]["text"]
+                # Formato atteso: "2026-06-01, 2026-07-31"
+                if "," in testo:
+                    date = testo.replace(" ", "").split(",")
+                    return date[0], date[1]
+    except:
+        pass
+    # Date di default se non scrivi nulla o c'è un errore
+    return "2026-03-01", "2026-03-31"
+
+def cerca_voli_smart():
+    data_inizio, data_fine = leggi_range_da_chat()
+    print(f"🔍 Cerco la migliore combinazione tra {data_inizio} e {data_fine}")
+
     url = "https://serpapi.com/search"
-    
-    # Parametri ottimizzati per trovare il prezzo più basso nel mese
     params = {
         "engine": "google_flights",
-        "departure_id": "MIL",    # Cerca MXP, BGY, LIN insieme
-        "arrival_id": "FUE",      # Fuerteventura
-        "outbound_date": "2026-03-14", # Data indicativa di partenza
-        "return_date": "2026-03-21",   # Data indicativa di ritorno
+        "departure_id": "MIL",
+        "arrival_id": "FUE",
+        "outbound_date": data_inizio,
+        "return_date": data_fine,
         "currency": "EUR",
         "hl": "it",
-        "gl": "it",               # Risultati dal mercato italiano
         "api_key": SERPAPI_KEY,
-        "type": "1"               # Forza la ricerca dei voli migliori
+        "type": "1" # Modalità ricerca smart/best
     }
 
-    try:
-        print(f"Uso la chiave API: {SERPAPI_KEY[:5]}***") # Stampa solo l'inizio per sicurezza
-        response = requests.get(url, params=params)
-        print(f"Stato Risposta: {response.status_code}")
-        
-        data = response.json()
-        
-        # Se c'è un errore nei parametri o nella chiave, SerpApi lo scrive qui:
-        if "error" in data:
-            print(f"Errore SerpApi: {data['error']}")
-            return
+    response = requests.get(url, params=params)
+    data = response.json()
+    
+    # Google Flights restituisce i voli più convenienti in questo range
+    offerte = data.get('best_flights', [])
+    
+    if not offerte:
+        print("Nessun volo trovato in questo range.")
+        return
 
-    except Exception as e:
-        print(f"Errore: {e}")
+    # Mandiamo i primi 2 risultati (i più 'smart')
+    for volo in offerte[:2]:
+        prezzo = volo['price']
+        tratta = volo['flights']
+        data_a = tratta[0]['departure_airport']['time'].split(' ')[0]
+        # Il ritorno è l'ultima tratta del pacchetto
+        data_r = tratta[-1]['departure_airport']['time'].split(' ')[0]
+        
+        msg = (
+            f"🎯 **MIGLIOR COMBINAZIONE TROVATA**\n\n"
+            f"💰 Prezzo Totale: {prezzo}€\n"
+            f"📅 Andata: {data_a}\n"
+            f"📅 Ritorno: {data_r}\n"
+            f"🛫 Aeroporto: {tratta[0]['departure_airport']['name']}\n"
+            f"🔗 [Apri su Google Flights](https://www.google.com/travel/flights)"
+        )
+        invia_telegram(msg)
 
 def invia_telegram(testo):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": testo, "parse_mode": "Markdown"})
 
 if __name__ == "__main__":
-    cerca_offerte_smart()
+    cerca_voli_smart()
