@@ -12,7 +12,7 @@ def cerca_offerte_smart():
     # Parametri ottimizzati per trovare il prezzo più basso nel mese
     params = {
         "engine": "google_flights",
-        "departure_id": "MXP, BGY",    # Cerca MXP, BGY, LIN insieme
+        "departure_id": "MIL",    # Cerca MXP, BGY, LIN insieme
         "arrival_id": "FUE",      # Fuerteventura
         "outbound_date": "2026-03-14", # Data indicativa di partenza
         "return_date": "2026-03-21",   # Data indicativa di ritorno
