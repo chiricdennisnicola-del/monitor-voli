@@ -1,50 +1,34 @@
 import requests
 import os
 
-TOKEN = os.getenv('TELEGRAM_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+print("--- INIZIO SCRIPT ---")
 
-def test_ryanair():
+def test():
+    # Proviamo una ricerca super semplice: Bergamo -> Fuerteventura a Marzo
     url = "https://www.ryanair.com/api/farfinder/v4/roundTripFares"
     params = {
         "departureAirportIataCode": "BGY",
         "arrivalAirportIataCode": "FUE",
         "outboundDepartureDateFrom": "2026-03-01",
-        "outboundDepartureDateTo": "2026-06-01",
+        "outboundDepartureDateTo": "2026-03-31",
         "inboundDepartureDateFrom": "2026-03-01",
-        "inboundDepartureDateTo": "2026-06-01",
-        "durationMinimumDays": 2,
+        "inboundDepartureDateTo": "2026-03-31",
+        "durationMinimumDays": 3,
         "durationMaximumDays": 15,
         "language": "it",
         "market": "it-it"
     }
     
-    print("Inviando richiesta a Ryanair...")
-    try:
-        res = requests.get(url, params=params, timeout=10)
-        print(f"Stato risposta: {res.status_code}")
-        
-        data = res.json()
-        offerte = data.get('fares', [])
-        
-        print(f"Numero di offerte trovate: {len(offerte)}")
-        
-        if len(offerte) > 0:
-            primo = offerte[0]
-            prezzo = primo['outbound']['price']['value'] + primo['inbound']['price']['value']
-            msg = f"✅ L'API funziona! Trovato volo a {prezzo}€"
-            invia_telegram(msg)
-        else:
-            invia_telegram("❌ L'API risponde ma non trova voli con questi filtri.")
-            
-    except Exception as e:
-        errore_msg = f"🔥 Errore API: {str(e)}"
-        print(errore_msg)
-        invia_telegram(errore_msg)
+    print(f"Sto interrogando Ryanair con questi parametri...")
+    res = requests.get(url, params=params)
+    print(f"Risposta del server: {res.status_code}")
+    
+    voli = res.json().get('fares', [])
+    print(f"Voli trovati: {len(voli)}")
+    
+    if len(voli) > 0:
+        prezzo = voli[0]['outbound']['price']['value'] + voli[0]['inbound']['price']['value']
+        print(f"Esempio prezzo trovato: {prezzo}€")
 
-def invia_telegram(testo):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": testo})
-
-if __name__ == "__main__":
-    test_ryanair()
+test()
+print("--- FINE SCRIPT ---")
